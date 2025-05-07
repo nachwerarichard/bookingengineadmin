@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard – Bookings</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #aaa;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f4f4f4;
+    }
+
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <h1>Admin Dashboard – All Bookings</h1>
+  <div id="booking-container">
+    <table id="booking-table">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Name</th>
+          <th>Email</th>
+        </tr>
+      </thead>
+      <tbody id="booking-table-body">
+        <!-- Bookings will be populated here -->
+      </tbody>
+    </table>
+    <p id="no-bookings-message" class="error hidden">No bookings available.</p>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
