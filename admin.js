@@ -1,4 +1,5 @@
 const API_BASE_URL = 'https://bookingenginebackend.onrender.com/api/bookings'; // Adjust if needed
+const ADMIN_LOGIN_URL = 'https://bookingenginebackend.onrender.com/api/admin/login'; // adjust to your actual endpoint
 
 // --- Utility Functions ---
 
@@ -11,12 +12,11 @@ const API_BASE_URL = 'https://bookingenginebackend.onrender.com/api/bookings'; /
 function showMessage(message, type, targetId) {
     const messageDiv = document.getElementById(targetId);
     messageDiv.textContent = message;
-    messageDiv.className = type; // 'success' or 'error'
+    messageDiv.className = type;
     messageDiv.classList.remove('hidden');
-    // Clear the message after a few seconds
     setTimeout(() => {
         messageDiv.classList.add('hidden');
-        messageDiv.textContent = ''; // Clear the text as well
+        messageDiv.textContent = '';
     }, 5000);
 }
 
@@ -35,101 +35,27 @@ async function fetchData(url, options = {}) {
         return await response.json();
     } catch (error) {
         console.error('Fetch error:', error);
-        throw error; // Re-throw to be caught by caller
+        throw error;
     }
-}
-
-// --- Authentication ---
-
-let authToken = localStorage.getItem('authToken'); // Load token from localStorage
-
-/**
- * Handles user login.
- */
-async function login() {
-    const usernameInput = document.getElementById('username');
-    const passwordInput = document.getElementById('password');
-    const messageDiv = document.getElementById('login-message');
-    const loginForm = document.getElementById('login-form');
-
-
-    const username = usernameInput.value;
-    const password = passwordInput.value;
-
-    if (!username || !password) {
-        showMessage('Please enter both username and password.', 'error', 'login-message');
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/login`, {  //  Ensure this endpoint matches your backend
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ username, password }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            authToken = data.token; // Store the token
-            localStorage.setItem('authToken', data.token); // Persist
-            showMessage('Logged in successfully!', 'success', 'login-message');
-            loginForm.classList.add('hidden');
-            document.getElementById('login-section').classList.add('hidden');
-            document.getElementById('dashboard-content').classList.remove('hidden');
-            fetchBookings(); // Load bookings immediately after successful login
-
-        } else {
-            showMessage(data.message || 'Invalid credentials', 'error', 'login-message');
-        }
-    } catch (error) {
-        showMessage('Failed to login. Please check your network.', 'error', 'login-message');
-    } finally{
-        loginForm.reset();
-    }
-}
-
-/**
- * Logs the user out
- */
-function logout() {
-    authToken = null;
-    localStorage.removeItem('authToken');
-    document.getElementById('dashboard-content').classList.add('hidden');
-    document.getElementById('login-section').classList.remove('hidden');
-    document.getElementById('login-form').reset();
-    const bookingsTableBody = document.querySelector('#bookings-table tbody');
-    bookingsTableBody.innerHTML = '<tr><td colspan="6">Please log in to view bookings.</td></tr>';
-
 }
 
 // --- Booking Management ---
+
 /**
  * Fetches all bookings from the API and displays them in a table.
  */
 async function fetchBookings() {
     const bookingsTableBody = document.querySelector('#bookings-table tbody');
-    bookingsTableBody.innerHTML = '<tr><td colspan="7">Loading bookings...</td></tr>'; // Show loading state
+    bookingsTableBody.innerHTML = '<tr><td colspan="7">Loading bookings...</td></tr>';
 
-    if (!authToken) {
-      bookingsTableBody.innerHTML = '<tr><td colspan="7">Please log in to view bookings.</td></tr>';
-      return;
-    }
     try {
-        const bookings = await fetchData(`${API_BASE_URL}/admin`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`, // Include the token
-            },
-        });
+        const bookings = await fetchData(`${API_BASE_URL}/admin`);
 
         if (!bookings || bookings.length === 0) {
             bookingsTableBody.innerHTML = '<tr><td colspan="7">No bookings found.</td></tr>';
             return;
         }
 
-        // Clear the table and populate it with the fetched bookings
         bookingsTableBody.innerHTML = '';
         bookings.forEach(booking => {
             const row = document.createElement('tr');
@@ -148,15 +74,12 @@ async function fetchBookings() {
             bookingsTableBody.appendChild(row);
         });
 
-        // Attach event listeners to the new buttons
         attachEventListenersToButtons();
 
     } catch (error) {
         bookingsTableBody.innerHTML = '<tr><td colspan="7">Failed to load bookings. Please check your network and backend.</td></tr>';
     }
 }
-
-
 
 /**
  * Handles editing a booking.
@@ -166,19 +89,9 @@ async function editBooking(id) {
     const editForm = document.getElementById('edit-form');
     const editIdInput = document.getElementById('edit-id');
 
-     if (!authToken) {
-        showMessage('Please log in to edit bookings.', 'error', 'edit-message');
-        return;
-    }
-
     try {
-        const booking = await fetchData(`${API_BASE_URL}/${id}`, {
-             headers: {
-                'Authorization': `Bearer ${authToken}`,
-            },
-        });
+        const booking = await fetchData(`${API_BASE_URL}/${id}`);
 
-        // Populate the edit form with the booking data
         editIdInput.value = booking._id;
         document.getElementById('edit-service').value = booking.service;
         document.getElementById('edit-date').value = new Date(booking.date).toISOString().split('T')[0];
@@ -186,10 +99,9 @@ async function editBooking(id) {
         document.getElementById('edit-name').value = booking.name;
         document.getElementById('edit-email').value = booking.email;
 
-        // Show the edit form
         document.getElementById('edit-booking-form').classList.remove('hidden');
-        editForm.removeEventListener('submit', handleEditSubmit); // Remove previous listener to avoid duplicates
-        editForm.addEventListener('submit', handleEditSubmit);       // Attach the event listener
+        editForm.removeEventListener('submit', handleEditSubmit);
+        editForm.addEventListener('submit', handleEditSubmit);
 
     } catch (error) {
         showMessage('Failed to fetch booking details for editing.', 'error', 'edit-message');
@@ -212,17 +124,11 @@ async function handleEditSubmit(event) {
         email: document.getElementById('edit-email').value,
     };
 
-     if (!authToken) {
-         showMessage('Please log in to update bookings.', 'error', 'edit-message');
-         return;
-     }
-
     try {
         const response = await fetch(`${API_BASE_URL}/${editId}`, {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(updatedBookingData),
         });
@@ -231,8 +137,8 @@ async function handleEditSubmit(event) {
 
         if (response.ok) {
             showMessage('Booking updated successfully!', 'success', 'edit-message');
-            document.getElementById('edit-booking-form').classList.add('hidden'); // Hide form
-            fetchBookings(); // Refresh the booking list
+            document.getElementById('edit-booking-form').classList.add('hidden');
+            fetchBookings();
         } else {
             showMessage(data.message || 'Failed to update booking.', 'error', 'edit-message');
         }
@@ -241,36 +147,27 @@ async function handleEditSubmit(event) {
     }
 }
 
-
-
 /**
  * Handles deleting a booking.
  * @param {string} id - The ID of the booking to delete.
  */
 async function deleteBooking(id) {
-    if (!authToken) {
-        showMessage('Please log in to delete bookings.', 'error', 'edit-message');
-        return;
-    }
     if (confirm('Are you sure you want to delete this booking?')) {
         try {
             const response = await fetch(`${API_BASE_URL}/${id}`, {
-                method: 'DELETE',
-                 headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                },
+                method: 'DELETE'
             });
 
             const data = await response.json();
 
             if (response.ok) {
                 showMessage('Booking deleted successfully!', 'success', 'edit-message');
-                fetchBookings(); // Refresh the booking list
+                fetchBookings();
             } else {
                 showMessage(data.message || 'Failed to delete booking.', 'error', 'edit-message');
             }
         } catch (error) {
-            showMessage('Error deleting booking. Please check your network.', 'error', 'message');
+            showMessage('Error deleting booking. Please check your network.', 'error', 'edit-message');
         }
     }
 }
@@ -284,9 +181,6 @@ async function createBookingManual() {
     const createTime = document.getElementById('create-time').value;
     const createName = document.getElementById('create-name').value;
     const createEmail = document.getElementById('create-email').value;
-    const messageDiv = document.getElementById('create-message');
-    const createForm = document.getElementById('create-form');
-
 
     if (!createService || !createDate || !createTime || !createName || !createEmail) {
         showMessage('Please fill in all fields.', 'error', 'create-message');
@@ -300,17 +194,12 @@ async function createBookingManual() {
         name: createName,
         email: createEmail,
     };
-     if (!authToken) {
-        showMessage('Please log in to create bookings.', 'error', 'create-message');
-        return;
-    }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/manual`, {  // Use the /manual endpoint
+        const response = await fetch(`${API_BASE_URL}/manual`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(newBookingData),
         });
@@ -319,8 +208,8 @@ async function createBookingManual() {
 
         if (response.ok) {
             showMessage('Booking created successfully!', 'success', 'create-message');
-            createForm.reset();
-            fetchBookings(); // Refresh
+            document.getElementById('create-form').reset();
+            fetchBookings();
         } else {
             showMessage(data.message || 'Failed to create booking.', 'error', 'create-message');
         }
@@ -329,56 +218,93 @@ async function createBookingManual() {
     }
 }
 
-
-
 /**
- * Attaches event listeners to the dynamically created "Edit" and "Delete" buttons.
+ * Attaches event listeners to edit and delete buttons.
  */
 function attachEventListenersToButtons() {
-    const editButtons = document.querySelectorAll('.edit-button');
-    const deleteButtons = document.querySelectorAll('.delete-button');
-
-    editButtons.forEach(button => {
+    document.querySelectorAll('.edit-button').forEach(button => {
         button.addEventListener('click', () => {
-            const id = button.dataset.id;
-            editBooking(id);
+            const bookingId = button.getAttribute('data-id');
+            editBooking(bookingId);
         });
     });
 
-    deleteButtons.forEach(button => {
+    document.querySelectorAll('.delete-button').forEach(button => {
         button.addEventListener('click', () => {
-            const id = button.dataset.id;
-            deleteBooking(id);
+            const bookingId = button.getAttribute('data-id');
+            deleteBooking(bookingId);
         });
     });
 }
 
-// --- Initialization ---
-
+// Initial load
 document.addEventListener('DOMContentLoaded', () => {
-    const loginForm = document.getElementById('login-form');
+    fetchBookings();
+});
+document.addEventListener('DOMContentLoaded', () => {
+    fetchBookings();
+
     const createForm = document.getElementById('create-form');
-
-
-    // Event listener for the login form
-    loginForm.addEventListener('submit', (event) => {
+    createForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-        login();
+
+        const newBooking = {
+            service: document.getElementById('create-service').value,
+            date: document.getElementById('create-date').value,
+            time: document.getElementById('create-time').value,
+            name: document.getElementById('create-name').value,
+            email: document.getElementById('create-email').value,
+        };
+
+        try {
+            const response = await fetch(API_BASE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newBooking)
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                showMessage('Booking created successfully!', 'success', 'create-message');
+                createForm.reset();
+                fetchBookings();
+            } else {
+                showMessage(data.message || 'Failed to create booking.', 'error', 'create-message');
+            }
+        } catch (error) {
+            showMessage('Error creating booking. Please check your network.', 'error', 'create-message');
+        }
+    });
+});
+document.getElementById('admin-login-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+
+  try {
+    const response = await fetch(ADMIN_LOGIN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ username, password })
     });
 
-     createForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        createBookingManual();
-    });
+    const data = await response.json();
 
-
-    // Check for existing token on page load
-    if (authToken) {
-        document.getElementById('login-section').classList.add('hidden');
-        document.getElementById('dashboard-content').classList.remove('hidden');
-        fetchBookings(); // Fetch bookings if logged in
+    if (response.ok) {
+      // Hide login, show dashboard
+      document.getElementById('login-form').classList.add('hidden');
+      document.getElementById('dashboard-content').classList.remove('hidden');
+      fetchBookings(); // load bookings
     } else {
-        document.getElementById('dashboard-content').classList.add('hidden');
-        document.getElementById('login-section').classList.remove('hidden');
+      showMessage(data.message || 'Login failed.', 'error', 'login-message');
     }
+  } catch (err) {
+    showMessage('Network error during login.', 'error', 'login-message');
+  }
 });
